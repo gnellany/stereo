@@ -1,33 +1,6 @@
 import cv2
 import numpy as np
 import time
-from sklearn.preprocessing import normalize
-import pandas as pd
-
-# import plotly.graph_objects as go
-
-import matplotlib.ticker as ticker
-import matplotlib.cm as cm
-import matplotlib as mpl
-from matplotlib.ticker import LinearLocator
-import matplotlib.pyplot as plt
-
-
-def sift(im1, im2):
-    start = time.time()
-    sift = cv2.SIFT_create()
-    keypoints1, des1 = sift.detectAndCompute(im1, None)  # image1 or c1
-    keypoints2, des2 = sift.detectAndCompute(im2, None)  # image2 or c2
-    # both = np.concatenate((c1, c2), axis=1)
-    # initialize Brute force matching
-    bestfit = cv2.BFMatcher(cv2.NORM_L1, crossCheck=True)
-    matches = bestfit.match(des1, des2)
-    # sort the matches
-    matches = sorted(matches, key=lambda match: match.distance)
-    matched_imge = cv2.drawMatches(im1, keypoints1, im2, keypoints2, matches[:30], None)
-    finish = time.time() -start
-    return keypoints1, keypoints2, matches, matched_imge, finish
-
 
 def orb(im1, im2):
     start = time.time()
@@ -48,9 +21,8 @@ def orb(im1, im2):
     matches = matches[:numGoodMatches]
     matched_imge = cv2.drawMatches(im1, keypoints1, im2, keypoints2, matches[:30], None)
     finish = time.time() - start
-    return  keypoints1, keypoints2, matches, matched_imge, finish
+    return im1, keypoints1, im2, keypoints2, matches, matched_imge,finish
     # Draw top matches
-
 
 def homo(im1, keypoints1, im2, keypoints2, matches):
     # Extract location of good matches
@@ -64,7 +36,7 @@ def homo(im1, keypoints1, im2, keypoints2, matches):
     # Find homography
     matrix, mask = cv2.findHomography(points1, points2, cv2.RANSAC)
 
-
+    # Use homography
     # Use homography
     height, width, channels = im2.shape
     height1, width1, channels = im1.shape
@@ -73,7 +45,7 @@ def homo(im1, keypoints1, im2, keypoints2, matches):
     # creates StereoBm object
 
     # allframe = np.concatenate((im1Reg,imMatches), axis=1)
-    return matrix, im1Reg , im2Reg
+    return matrix, im1Reg, im2Reg
 
 def disparity(im1Reg , im2Reg):
     # SGBM Parameters -----------------
@@ -96,7 +68,7 @@ def disparity(im1Reg , im2Reg):
     right_matcher = cv2.ximgproc.createRightMatcher(left_matcher)
     # FILTER Parameters
     lmbda = 80000
-    sigma = 2.2
+    sigma = 2.1
     visual_multiplier = 1.0
 
     wls_filter = cv2.ximgproc.createDisparityWLSFilter(matcher_left=left_matcher)
@@ -114,6 +86,7 @@ def disparity(im1Reg , im2Reg):
 
 
 
+listofitems = []
 # camera feed
 video1 = cv2.VideoCapture(1)
 video2 = cv2.VideoCapture(0)
@@ -121,54 +94,37 @@ video2 = cv2.VideoCapture(0)
 MAX_FEATURES = 1000
 GOOD_MATCH_PERCENT = 0.5
 count = 0
-
+MATCH_TIME = []
+FINISH_TIME = []
 while True:
     start_time = time.time()
-    # read caqqqmera to while loop
+    # read camera to while loop
     ret1, refFilename = video1.read()
     ret2, imFilename = video2.read()
     # preform functions
-    orbkeypoints1, orbkeypoints2, orbmatches, orbmat, orbtime = orb(refFilename, imFilename)
-    siftkeypoints1, siftkeypoints2, siftmatches, siftmat, sifttime = sift(refFilename, imFilename)
-
-    orbmatrix, orbview_L ,orbview_R  = homo(refFilename, orbkeypoints1, imFilename, orbkeypoints2, orbmatches)
-    siftmatrix, siftview_L, siftview_R = homo(refFilename, siftkeypoints1, imFilename, siftkeypoints2, siftmatches)
-    # combine input video to output
-    inputcat = np.concatenate((refFilename, imFilename), axis=1)
-    orbcat = np.concatenate((orbview_L, orbview_R), axis=1)
-    siftcat = np.concatenate((siftview_L, siftview_R), axis=1)
-    #allframe = np.concatenate((inputcat,orbcat,siftcat), axis=1)
-
+    im1, keypoints1, im2, keypoints2, matches, mat, pro_time = orb(refFilename, imFilename)
+    matrix, view_L ,view_R  = homo(im1, keypoints1, im2, keypoints2, matches)
+    #combine input video to output
+    #outputcat = np.concatenate((view_L,view_R), axis=1)
+    #orbcat = np.concatenate((orbview_L, orbview_R), axis=1)
     matchtimes = time.time() - start_time
-    print("ORB Time: ", orbtime)
-    print("SIFT Time: ", sifttime)
+    print("Process Time: ", pro_time)
     print("Match Time: ",matchtimes)
-
     #cv2.imshow("Matching Images", orbcat)
-    orbdisparity = disparity(orbview_L, orbview_R)
-    siftdisparity = disparity(siftview_L, siftview_R)
-
-    cv2.imshow("SIFT disparity", siftdisparity)
-    cv2.imshow("ORB disparity", orbdisparity)
-    cv2.imshow("output", inputcat)
+    #disparity_SGBM = disparity(view_L, view_R)
+    #output = np.concatenate((refFilename, imFilename), axis=1)
+    #cv2.imshow("outputcat", outputcat)
+    #cv2.imshow("output", output)
     finish_time = time.time() - start_time
     print("Total: ", finish_time)
     #########################
-    cv2.imwrite("Experiment/Input/Input_Feed%d.jpg" % count, inputcat)  # save frame as JPEG file
-    ###ORB
-    cv2.imwrite("Experiment/ORB/Matches/Matches%d.jpg" % count, orbmat)  # save frame as JPEG file
-    cv2.imwrite("Experiment/ORB/Homo/Homo%d.jpg" % count, orbcat)  # save frame as JPEG file
-    cv2.imwrite("Experiment/ORB/Disparity/Disparity%d.jpg" % count, orbdisparity)  # save frame as JPEG file
-    ###SIFT
-    cv2.imwrite("Experiment/SIFT/Matches/Matches%d.jpg" % count, siftmat)  # save frame as JPEG file
-    cv2.imwrite("Experiment/SIFT/Homo/Homo%d.jpg" % count, siftcat)  # save frame as JPEG file
-    cv2.imwrite("Experiment/SIFT/Disparity/Disparity%d.jpg" % count, siftdisparity)  # save frame as JPEG file
-    matchtimes = time.time() - start_time
-    print("Total: ", matchtimes)
+    #cv2.imwrite("Seperated_files/disparity%d.jpg" % count, disparity_SGBM)  # save frame as JPEG file
+    #cv2.imwrite("Seperated_files/output%d.jpg" % count, output)  # save frame as JPEG file
     #########################
-
     key = cv2.waitKey(1)
     if key == ord('q'):
+        break
+    if count > 60:
         break
     count += 1
 cv2.destroyAllWindows()
