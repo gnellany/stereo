@@ -4,8 +4,6 @@ import time
 from sklearn.preprocessing import normalize
 import pandas as pd
 
-# import plotly.graph_objects as go
-
 import matplotlib.ticker as ticker
 import matplotlib.cm as cm
 import matplotlib as mpl
@@ -61,14 +59,14 @@ def homo(im1, keypoints1, im2, keypoints2, matches):
     matrix, mask = cv2.findHomography(points1, points2, cv2.RANSAC)
 
     # Use homography
-    # Use homography
     height, width, channels = im2.shape
     height1, width1, channels = im1.shape
     im1Reg = cv2.warpPerspective(im1, matrix, (width, height))
     im2Reg = cv2.warpPerspective(im2, matrix, (width1, height1))
-    # creates StereoBm object
 
-    # allframe = np.concatenate((im1Reg,imMatches), axis=1)
+    # Visualize the results
+    visualize_results(im1, im2, im1Reg, im2Reg)
+
     return matrix, im1Reg , im2Reg
 
 def disparity(im1Reg , im2Reg):
@@ -115,6 +113,28 @@ def disparity(im1Reg , im2Reg):
 
     return disparity_SGBM
 
+def visualize_results(im1, im2, im1Reg, im2Reg):
+    # Display the original and warped images
+    fig, axes = plt.subplots(2, 2, figsize=(15, 10))
+    
+    axes[0, 0].imshow(cv2.cvtColor(im1, cv2.COLOR_BGR2RGB))
+    axes[0, 0].set_title('Original Image 1')
+    axes[0, 0].axis('off')
+    
+    axes[0, 1].imshow(cv2.cvtColor(im2, cv2.COLOR_BGR2RGB))
+    axes[0, 1].set_title('Original Image 2')
+    axes[0, 1].axis('off')
+    
+    axes[1, 0].imshow(cv2.cvtColor(im1Reg, cv2.COLOR_BGR2RGB))
+    axes[1, 0].set_title('Warped Image 1')
+    axes[1, 0].axis('off')
+    
+    axes[1, 1].imshow(cv2.cvtColor(im2Reg, cv2.COLOR_BGR2RGB))
+    axes[1, 1].set_title('Warped Image 2')
+    axes[1, 1].axis('off')
+    
+    plt.tight_layout()
+    plt.show()
 
 
 # camera feed
@@ -153,7 +173,7 @@ while True:
 
     #########################
 
-    key = cv2.waitKey(0)
+    key = cv2.waitKey(1)
     if key == ord('q'):
         break
     count += 1
